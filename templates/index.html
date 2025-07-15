@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stock Dashboard - Finnhub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Date and Time</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1></h1>
+
+    <div class="header-tools">
+        
+        <a href="https://tholem.pythonanywhere.com/" target="_blank" class="redirect-button">
+            Dividend Yield Calculator
+        </a>
+
+        <div class="theme-switch-wrapper">
+                <div class="slider round"></div>
+            </label>
+        </div>
+    </div>
+</header>
+  <div id="datetime"></div>
+  <script>
+    function updateDateTime() {
+      const now = new Date();
+      const options = {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+      document.getElementById('datetime').textContent = now.toLocaleString('en-US', options);
+    }
+
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+  </script>
+    <header>
+        <h1>Live Stock Insights</h1>
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider round"></div>
+            </label>
+            <em>Dark Mode</em>
+        </div>
+    </header>
+    <main>
+        <section id="stock-container" class="stock-grid">
+            <p class="loading-message">Loading stock data... Please wait a moment.</p>
+        </section>
+    </main>
+
+    <script>
+        // Function to set or remove dark mode class from body
+        function setDarkMode(isDark) {
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        }
+
+        // Check for saved theme preference on load
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            setDarkMode(true);
+            document.getElementById('checkbox').checked = true;
+        }
+
+        // Toggle dark mode
+        document.getElementById('checkbox').addEventListener('change', function() {
+            setDarkMode(this.checked);
+            localStorage.setItem('theme', this.checked ? 'dark' : 'light');
+        });
+
+        async function fetchAndDisplayStocks() {
+            try {
+                const response = await fetch('/api/stocks');
+                const stocks = await response.json();
+                const stockContainer = document.getElementById('stock-container');
+                stockContainer.innerHTML = ''; // Clear previous data
+
+                if (Object.keys(stocks).length === 0) {
+                    stockContainer.innerHTML = '<p class="loading-message">No stock data available yet. Backend is fetching data or API key might be invalid.</p>';
+                    return;
+                }
+
+                // Sort stocks by symbol for consistent display
+                const sortedSymbols = Object.keys(stocks).sort();
+
+                sortedSymbols.forEach(symbol => {
+                    const data = stocks[symbol];
+                    const stockCard = document.createElement('div');
+                    stockCard.className = 'stock-card'; // Apply your CSS for styling
+
+                    const change = parseFloat(data.change);
+                    const percentageChange = parseFloat(data.percentage_change);
+                    const changeClass = change >= 0 ? 'positive' : 'negative';
+                    const arrowIcon = change >= 0 ? '&#9650;' : '&#9660;'; // Up arrow or down arrow
+
+                    stockCard.innerHTML = `
+                        <div class="card-header">
+                            ${data.logo ? `<img src="${data.logo}" alt="${data.company_name} Logo" class="company-logo">` : ''}
+                            <h2>${data.company_name} (${data.symbol})</h2>
+                        </div>
+                        <div class="card-body">
+                            <p class="current-price">$${data.current_price}</p>
+                            <p class="price-change ${changeClass}">
+                                ${arrowIcon} ${data.change} (${data.percentage_change}%)
+                            </p>
+                            <div class="price-details">
+                                <p>Open: <span>$${data.open_price}</span></p>
+                                <p>High: <span>$${data.high_price}</span></p>
+                                <p>Low: <span>$${data.low_price}</span></p>
+                                <p>Prev. Close: <span>$${data.prev_close_price}</span></p>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <p class="timestamp">Last Update: ${new Date(data.timestamp).toLocaleTimeString()}</p>
+                        </div>
+                    `;
+                    stockContainer.appendChild(stockCard);
+                });
+
+            } catch (error) {
+                console.error("Error fetching or displaying stock data:", error);
+                document.getElementById('stock-container').innerHTML = '<p class="error-message">Error loading stock data. Please check console for details.</p>';
+            }
+        }
+
+        // Fetch and display immediately on page load
+        fetchAndDisplayStocks();
+
+        // Refresh data every 10 seconds (client-side refresh)
+        // This is separate from the backend's data fetching interval
+        setInterval(fetchAndDisplayStocks, 10000); // Fetch data from Flask backend every 10 seconds
+    </script>
+ 
+          <!-- Ticker headers will be injected here -->
+        </tr>
+      </thead>
+      <tbody id="comparison-body">
+        <!-- Dynamic rows inserted here -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function populateComparisonTable(results) {
+    const headerRow = document.getElementById("table-header");
+    const tbody = document.getElementById("comparison-body");
+
+    // Clear existing headers and body
+    headerRow.innerHTML = '<th>Metric</th>';
+    tbody.innerHTML = '';
+
+    const metrics = [
+      'Starting Investment',
+      'Annual Yield',
+    ];
+
+    // Dynamically detect year-based metrics
+    const sample = Object.values(results).find(r => !r.error);
+    const year = sample?.years || 10;
+    metrics.push(`${year}-Year Value (No DRIP)`, `${year}-Year Value (With DRIP)`);
+
+    // Build row structure first
+    const rowMap = {};
+    metrics.forEach(metric => {
+      const row = document.createElement("tr");
+      const label = document.createElement("td");
+      label.textContent = metric;
+      row.appendChild(label);
+      rowMap[metric] = row;
+      tbody.appendChild(row);
+    });
+
+    // Add each stock column
+    Object.entries(results).forEach(([ticker, data]) => {
+      if (data.error) return;
+
+      const th = document.createElement("th");
+      th.textContent = ticker;
+      headerRow.appendChild(th);
+
+      rowMap['Starting Investment'].insertAdjacentHTML("beforeend", `<td>${data.starting_investment}</td>`);
+      rowMap['Annual Yield'].insertAdjacentHTML("beforeend", `<td>${data.dividend_yield}</td>`);
+      rowMap[`${year}-Year Value (No DRIP)`].insertAdjacentHTML("beforeend", `<td>${data[`${year}-Year Value (No DRIP)`]}</td>`);
+      rowMap[`${year}-Year Value (With DRIP)`].insertAdjacentHTML("beforeend", `<td>${data[`${year}-Year Value (With DRIP)`]}</td>`);
+    });
+  }
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividend Calculator</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Dividend Growth Calculator</h1>
+        <button class="btn btn-secondary" onclick="document.body.classList.toggle('dark-mode')">
+    Toggle Dark Mode
+</button>
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="tickers">Ticker Symbol(s) (e.g., AAPL, MSFT, VOO):</label>
+                <input type="text" class="form-control" id="tickers" name="tickers" placeholder="Enter ticker symbols" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="initial_investment">Initial Investment ($):</label>
+                <input type="number" class="form-control" id="initial_investment" name="initial_investment" value="10000" step="any" required>
+            </div>
+            <div class="form-group">
+                <label for="investment_years">Investment Years:</label>
+                <input type="number" class="form-control" id="investment_years" name="investment_years" value="10" required>
+            </div>
+            <div class="form-group">
+                <label for="annual yield">Annual Yield (%):</label>
+                <input type="number" class="form-control" id="annual yield" name="annual_yield" value="5" step="any" required>
+            </div>
+            <div class="form-group">
+                <label>Dividend Reinvestment Plan (DRIP):</label><br>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="drip_enabled" id="drip_yes" value="yes" checked>
+                    <label class="form-check-label" for="drip_yes">Yes</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="drip_enabled" id="drip_no" value="no">
+                    <label class="form-check-label" for="drip_no">No</label>
+                </div>
+            </div>
+         <form action="/calculate_dividends" method="POST">
+   <!-- <div class="form-group">
+        <label for="tickers">Ticker Symbols (e.g., AAPL, MSFT):</label>
+        <input type="text" class="form-control" id="tickers" name="tickers" required>
+    </div>
+    <div class="form-group">
+        <label for="initial_investment">Initial Investment ($):</label>
+        <input type="number" class="form-control" id="initial_investment" name="initial_investment" step="0.01" required>
+    </div>
+    <div class="form-group">
+                <label for="investment_years">Investment Years:</label>
+                <input type="number" class="form-control" id="investment_years" name="investment_years" value="10" required>
+            </div>
+    <div class="form-group">
+                <label for="annual yield">Annual Yield (%):</label>
+                <input type="number" class="form-control" id="annual yield" name="annual_yield" value="5" step="any" required>
+            </div> -->
+    <button type="submit" class="btn btn-primary">Calculate</button>
+</form>
+        </form>
+
+        {% if results %}
+            <div class="results-section">
+                <h2>Individual Stock Results</h2>
+                {% for result in results %}
+                    <h3>{{ result.ticker }}</h3>
+                    {% if result.error %}
+                        <p class="error">{{ result.error }}</p>
+                    {% else %}
+                        <p><strong>Current Price:</strong> {{ result.current_price }}</p>
+                        
+                        
+                        
+                        
+                        <p><strong>Final Value (No DRIP):</strong> {{ result.final_value_no_drip }}</p>
+                        <p><strong>Final Value (With DRIP):</strong> {{ result.final_value_with_drip }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if comparison_table %}
+                <div class="comparison-section">
+                    <h2>Comparison of Scenarios</h2>
+                    {{ comparison_table | safe }}
+                </div>
+            {% endif %}
+
+            {% if plot_url %}
+                <div class="chart-section">
+                    <h2>Portfolio Growth Chart</h2>
+                    <img src="{{ plot_url }}" alt="Portfolio Growth Chart">
+                </div>
+            {% endif %}
+
+            <div class="export-options mt-4">
+                <h2>Export Results</h2>
+                <form action="/export_csv" method="POST" style="display:inline;">
+                    <input type="hidden" name="export_tickers" value="{{ request.form.get('tickers') }}">
+                    <input type="hidden" name="export_initial_investment" value="{{ request.form.get('initial_investment') }}">
+                    <input type="hidden" name="export_investment_years" value="{{ request.form.get('investment_years') }}">
+                    <input type="hidden" name="export_drip_enabled" value="{{ 'true' if request.form.get('drip_enabled') == 'yes' else 'false' }}">
+                    <button type="submit" class="btn btn-success">Export to CSV</button>
+                </form>
+                
+            </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
+</body>
+</html>
